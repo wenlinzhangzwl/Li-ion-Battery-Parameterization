@@ -191,58 +191,114 @@ for i = 1:height(data)
     data{i, 2}.P1 = P1; 
 end
 
-%% Histogram & PDF of a selected drive cycle
+%% Histogram, pdf & power percentage of drive cycle current
 
-datanum = 3; 
-profile = data{datanum, 2}.Current; 
-profileName = data{datanum, 1};
+% figure_histogram = figure; 
+% figure_powerSpectrum = figure;
+% figure_powerPercentage = figure; 
 
-% Plot power spectrum
-% figure; 
-% plot(data{datanum, 2}.f, data{datanum, 2}.P1);%, 'LineWidth',0.1); 
-% grid on; xlabel('f [Hz]'); ylabel('|Current(f)| [A]');
-% title(profileName)
-% set(gca, 'XScale', 'log');
+edges = [-280:5:280];
+freqrange = [0.01:0.001:0.5];
 
-% Plot histogram
-figure_histogram = figure; 
-H = histogram(profile, 'Normalization','probability'); 
-grid on; title(profileName); xlabel('Drive Cycle Current [A]'); ylabel('Relative Frequency')
+distribution.mu = [];
+distribution.sigma = [];
+distribution.CI95 = []; 
+distribution.f_cutoff = []; 
+distribution.totalPower = []; 
 
-% Find & plot pdf
-[mu, sigma] = normfit(profile); 
-pdf_normal = pdf('Normal', profile, mu, sigma);
-figure_histogram; hold on; 
-plot(profile, pdf_normal, 'linewidth', 1);
+for datanum = 1:5
+    profile = data{datanum, 2}.Current; 
+    profileName = data{datanum, 1};
+    
+    % Plot histogram
+%     figure(figure_histogram)
+%     subplot(5, 1, datanum); 
+%     H = histogram(profile, edges, 'Normalization','pdf'); 
+%     xlim([-150, 150]);
+%     grid on; title(profileName); xlabel('I [A]'); ylabel('P(I)')
+    
+    % Find & plot pdf
+    [mu, sigma] = normfit(profile);
+    current_range = [-250:0.1:250];
+    pdf_normal = pdf('Normal', current_range, mu, sigma);
 
-% 95% interval of pdf
-ts_pdf = tinv([0.05  0.95], length(profile)-1);      % T-Score
-CI95_pdf = mu + ts_pdf * sigma;
-y = [0:0.001:max(pdf_normal)]';
-x = ones(height(y), 1) .* [CI95_pdf mu];
-figure_histogram; hold on; 
-plot(x(:, 1), y, 'linewidth', 2);
-plot(x(:, 2), y, 'linewidth', 2);
-plot(x(:, 3), y, 'linewidth', 2);
+%     figure(figure_histogram); hold on; 
+%     plot(current_range, pdf_normal, 'color', 'r');
+
+    distribution.mu = [distribution.mu; mu];
+    distribution.sigma = [distribution.sigma; sigma]; 
+
+    % 95% interval of pdf
+    ts_pdf = tinv([0.05  0.95], length(profile)-1);     % T-Score
+    CI95_pdf = mu + ts_pdf * sigma;                     % 95% confidence interval
+    y = [0:0.001:max(pdf_normal)]';
+    x = ones(height(y), 1) .* [CI95_pdf mu];
+
+%     figure(figure_histogram); hold on; 
+%     plot(x(:, 1), y, 'color', 'r');
+%     plot(x(:, 2), y, 'color', 'r');
+%     plot(x(:, 3), y, 'color', 'r');
+
+    distribution.CI95 = [distribution.CI95; CI95_pdf]; 
+
+    % Power percentage
+    P1 = data{datanum, 2}.P1; 
+    f = data{datanum, 2}.f; 
+%     totalPower = sum(P1);
+%     perc = cumsum(P1)/totalPower; 
+%     ind = find(perc>= 0.9, 1); 
+%     f_cutoff = f(ind); % Frequency at which 90% of power is covered
+    perc = 0; 
+    totalPower = bandpower(profile,10,[0 max(f)]); 
+    for i = 1:length(freqrange)
+        power = bandpower(profile,10,[0 freqrange(i)]); 
+        perc = power/totalPower; 
+        if perc >= 0.9
+            break
+        end
+    end
+    f_cutoff = freqrange(i);
+
+    distribution.f_cutoff = [distribution.f_cutoff; f_cutoff]; 
+    distribution.totalPower = [distribution.totalPower; totalPower]; 
+    
+    % Plot power percentage curves
+%     figure(figure_powerPercentage);
+%     subplot(5, 1, datanum); hold on;
+%     plot(f, perc)
+%     x = [0:0.1:5];
+%     y = ones(length(x)) * 0.9; 
+%     plot(x, y)
+%     grid on; title(profileName)
+
+    % Plot power spectrums
+%     figure(figure_powerSpectrum);
+%     subplot(5, 1, datanum); hold on;
+%     plot(data{datanum, 2}.f, data{datanum, 2}.P1);
+%     grid on; xlabel('f [Hz]'); ylabel('|Current(f)| [A]');
+%     title(profileName)
+%     set(gca, 'XScale', 'log');
+end
 
 %% Generate MLBS signal
-
-% Amplitude (a)
-param.a = CRate * 280; %max(abs(CI95_pdf)); 
-
-% Source clock period (t_clk)
-f_clk = 0.2; % Broadest components for power spectrum are below 2 Hz, freq<=10Hz
-param.t_clk = 1/f_clk; 
 
 % Number of bits (n) -------see [Fairweather 2011]
 param.n = 8; 
 
+% Source clock period (t_clk)
+n = 50;  % n = 50 for f = 0.2Hz 
+param.t_clk = n*0.1;              % Multiple of sampling time (0.1s)
+param.f_clk = 1/param.t_clk;      % Broadest components for power spectrum are below 2 Hz, freq<=10Hz
+
+% Amplitude (a)
+param.a = 0.25 * 280; %max(abs(CI95_pdf)); 
+
 % PRBS signal with amplitude param.a
 mlbs = prbs(param.n, 2^param.n-1);
-mlbs_signal = (mlbs' - 0.5) * 2 * param.a; % convert to symmetric signal with amplitude a
+mlbs_signal = (mlbs' - 0.5) * 2 * param.a; % Convert to symmetric signal with amplitude a
 
 % Upsample to cycler sampling time
-mlbs_signal = upsample(mlbs_signal, param.t_clk/deltaT); 
+mlbs_signal = upsample(mlbs_signal, n); 
 ind = find(mlbs_signal ~= 0); 
 for i = 1:height(ind)
     if i ~= height(ind)
@@ -280,7 +336,7 @@ irbs(ind) = irbs_inv(ind);
 irbs_signal = (irbs' - 0.5) * 2 * param.a; % convert to symmetric signal with amplitude a
 
 % Upsample to cycler sampling time
-irbs_signal = upsample(irbs_signal, param.t_clk/deltaT); 
+irbs_signal = upsample(irbs_signal, n); 
 ind = find(irbs_signal ~= 0); 
 for i = 1:height(ind)
     if i ~= height(ind)
@@ -306,11 +362,17 @@ time_irbs = [0:deltaT:time_total]';
 signals.irbs = [time_irbs, irbs_signal];  % Maximum length binary sequence
 
 % Plot generated mlbs & irbs signals
-% figure; hold on
-% plot(time_mlbs, mlbs_signal, '.-');
-% plot(time_irbs, irbs_signal, '.-'); 
-% grid on; legend('mlbs', 'irbs')
+figure; hold on
+ax1 = subplot(2, 1, 1); plot(time_mlbs, mlbs_signal, '.-'); grid on; title("MLBS"); xlabel("Time [s]"); ylabel("Current [A]")
+ax2 = subplot(2, 1, 2); plot(time_irbs, irbs_signal, '.-'); grid on; title("IRBS"); xlabel("Time [s]"); ylabel("Current [A]")
+linkaxes([ax1 ax2], 'x')
 
+% Max consecutive elements in the signals
+mlbs_max = max(diff(find(diff([NaN mlbs_signal' NaN])))); 
+param.mlbs_SOCVariation = mlbs_max * deltaT * param.a / (280 * 3600) * 100; 
+
+irbs_max = max(diff(find(diff([NaN irbs_signal' NaN])))); 
+param.irbs_SOCVariation = irbs_max * deltaT * param.a / (280 * 3600) * 100; 
 
 %% Combine pulse1 + MLBS + rest (1% SOC)
 
@@ -471,18 +533,53 @@ ax5 = subplot(6, 1, 5); plot(signals.pulse2_irbs_rest(:, 1), signals.pulse2_irbs
 ax6 = subplot(6, 1, 6); plot(signals.pulse_irbs_rest_entireRange(:, 1), signals.pulse_irbs_rest_entireRange(:, 2), '.-'); grid on
 linkaxes([ax1 ax2 ax3 ax4 ax5 ax6], 'x')
 
-%% Power spectrums
+figure
+ax1 = subplot(2, 1, 1); plot(signals.pulse_mlbs_rest_entireRange(:, 1)/3600, signals.pulse_mlbs_rest_entireRange(:, 2), '.-'); 
+grid on; title("MLBS"); xlabel("Time [h]"); ylabel("Current [A]")
+ax2 = subplot(2, 1, 2); plot(signals.pulse_irbs_rest_entireRange(:, 1)/3600, signals.pulse_irbs_rest_entireRange(:, 2), '.-'); 
+grid on; title("IRBS"); xlabel("Time [h]"); ylabel("Current [A]")
+linkaxes([ax1 ax2], 'x')
 
+%% Power spectrums
 figure; hold on; 
-plot(data{4, 2}.f, data{4, 2}.P1, 'LineWidth',0.1); 
-plot(data{9, 2}.f, data{9, 2}.P1, 'LineWidth',0.1); 
-plot(data{10, 2}.f, data{10, 2}.P1, 'LineWidth',0.1); 
-plot(data{3, 2}.f, data{3, 2}.P1, 'LineWidth',0.1); 
-grid on; xlabel('f [Hz]'); ylabel('|Current(f)| [A]'); legend("US06", 'Pulse-MLBS', 'Pulse-IRBS', "UDDS")
+plot(data{9, 2}.f, data{9, 2}.P1, 'LineWidth',0.1, 'color', '#EDB120'); % Pulse-MLBS
+plot(data{10, 2}.f, data{10, 2}.P1, 'LineWidth',0.1, 'color', '#4DBEEE'); % Pulse-IRBS
+grid on; xlabel('f [Hz]'); ylabel('|Current(f)| [A]'); legend("Pulse-MLBS", 'Pulse-IRBS')
+ylim([0, 15])
 title("Power Spectrums of Test Profiles")
-% xlim([0, 0.4]); ylim([0, 20]); 
 set(gca, 'XScale', 'log');
 
+
+figure; hold on; 
+% plot(data{4, 2}.f, data{4, 2}.P1, 'LineWidth',0.1, 'color', '#0072BD');  % US06
+plot(data{5, 2}.f, data{5, 2}.P1, 'LineWidth',0.1, 'color', '#0072BD');  % Mixed
+plot(data{3, 2}.f, data{3, 2}.P1, 'LineWidth',0.1, 'color', '#7E2F8E'); % UDDS
+plot(data{9, 2}.f, data{9, 2}.P1, 'LineWidth',0.1, 'color', '#EDB120'); % Pulse-MLBS
+plot(data{8, 2}.f, data{8, 2}.P1, 'LineWidth',0.1, 'color', '#77AC30'); % Pulse 0.8C
+grid on; xlabel('f [Hz]'); ylabel('|Current(f)| [A]'); legend("Mixed", "UDDS", 'Pulse-MLBS', 'Pulse 0.8C')
+ylim([0, 15])
+title("Power Spectrums of Test Profiles")
+set(gca, 'XScale', 'log');
+
+%% Format tests for Digatron
+
+% Pulse1 + MLBS
+sigToCombine = {signals.pulse1(:, 2); signals.mlbs(:, 2)}; 
+signals.pulse1_mlbs = combineSignals(sigToCombine, deltaT); 
+figure; plot(signals.pulse1_mlbs(:, 1), signals.pulse1_mlbs(:, 2))
+command = string(signals.pulse1_mlbs(:, 1)) + ' sec;;' + string(signals.pulse1_mlbs(:, 2)) +  ';;';
+folder = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\9 - Pulse-PRBS Tests\Input\";
+filename = folder + "EVE280_pulse1_mlbs.txt";
+% writematrix(command, filename);
+
+% % Pulse2 + MLBS
+sigToCombine = {signals.pulse2(:, 2); signals.mlbs(:, 2)}; 
+signals.pulse2_mlbs = combineSignals(sigToCombine, deltaT); 
+figure; plot(signals.pulse2_mlbs(:, 1), signals.pulse2_mlbs(:, 2))
+command = string(signals.pulse2_mlbs(:, 1)) + ' sec;;' + string(signals.pulse2_mlbs(:, 2)) +  ';;';
+folder = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\9 - Pulse-PRBS Tests\Input\";
+filename = folder + "EVE280_pulse2_mlbs.txt";
+% writematrix(command, filename);
 
 %% Functions
 function out = combineSignals(signals, deltaT)
