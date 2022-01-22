@@ -48,4 +48,4 @@ meas.Time = time;
 meas.Current = current; 
 
 filename = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\48V Battery Pack Design\Test Results\9 - Modified pulse test\ModifiedPulse"; 
-save(filename, "meas")
+% save(filename, "meas")
