@@ -15,7 +15,7 @@ addpath(folder_result);
 % profileSet = ["Pulse"; "US06"; "HWFET"; "UDDS"; "MIX"; "NEDC"];
 % paramSet = ["US06_Poly7_36";"US06_Poly8_36";"US06_Poly9_36";"US06_Poly10_36";"US06_Poly11_36";"US06_Poly15_36";"US06_Poly18_36";"US06_Poly19_36";"US06_Poly21_36"];
 
-profileSet = ["US06"; "HWFET"; "UDDS"; "MIX"; "NEDC"];
+profileSet = ["US06"; "HWFET"]; % "UDDS"; "MIX"; "NEDC"];
 paramSet = ["MLBS0p2_LS"]; % "MLBS0p2_PSO", "MLBS0p2_LS"
 
 % RMSE for each case
@@ -785,23 +785,15 @@ for paramNum = 1:height(paramSet)
     figure('WindowStyle', 'docked', 'Name', figurename);
     for i = 1:height(rmse_temp)
         axes{i, 1} = subplot(height(rmse_temp), 1, i); hold on
-
-        SOC_i = rmse_temp{i, 1}{1, 5}(:, 2); 
-        Voltage_i = rmse_temp{i, 1}{1, 5}(:, 3);
-        Vt_sim_i = rmse_temp{i, 1}{1, 5}(:, 4); 
-        inputProfile_i = rmse_temp{i, 1}{1, 2}; 
-        rmse_i = rmse_temp{i, 1}{1, 3}; 
-
-        plot(SOC_i, Voltage_i);
-        plot(SOC_i, Vt_sim_i);
-
-        grid on; legend(['exp'; 'sim']); title(inputProfile_i)
+        plot(meas_t.SOC, meas_t.Voltage);
+        plot(meas_t.SOC(1:height(Vt)), Vt);
+        hold off; grid on; 
         xlim([-0.01, 1.01]); 
+        legend(['exp'; 'sim']); title(inputProfile)
     %         annotation('textbox', [0.14, 1.12-0.3*runNum, 0.1, 0.1], 'String', "RMSE = " + string(rmse_Vt*1000)) % 3 plots
-        annotation('textbox', [0.13, 0.82-0.172*(i-1), 0.1, 0.1], 'String', "RMSE = " + string(rmse_i*1000)) % 5 plots
+        annotation('textbox', [0.13, 0.82-0.172*(profileNum-1), 0.1, 0.1], 'String', "RMSE = " + string(Vt_rmse*1000)) % 5 plots
     %         annotation('textbox', [0.13, 0.82-0.145*(runNum-1), 0.1, 0.1], 'String', "RMSE = " + string(rmse_Vt*1000)) % 6 plots
     end
-
     % Plot parameters (before & after)
     % figure('WindowStyle', 'docked', 'Name', 'Params');
     % ax1 = subplot(2, 5, 1); hold on; plot(SOC, param.R0_init, '.-'); plot(SOC, R0(:, 1), '.-'); title('R0_dch'); grid on; xlabel('SOC'); ylabel('R [Ohm]'); legend('before', 'after', 'Interpreter', 'none')
@@ -825,24 +817,16 @@ for paramNum = 1:height(paramSet)
     % Plot parameters (after)
     figure('WindowStyle', 'docked', 'Name', inputParameter);
     ax1 = subplot(2, 4, 1); hold on; plot(SOC, R0(:, 1), '.-'); title('R0_dch', 'interpreter', 'none'); grid on; xlabel('SOC'); ylabel('R [Ohm]');
-    ax2 = subplot(2, 4, 2); hold on; plot(SOC, R1, '.-'); title('R1'); grid on; xlabel('SOC'); ylabel('R [Ohm]');
+    ax2 = subplot(2, 5, 2); hold on; plot(SOC, R1, '.-'); title('R1'); grid on; xlabel('SOC'); ylabel('R [Ohm]');
     ax3 = subplot(2, 4, 3); hold on; plot(SOC, R2, '.-'); title('R2'); grid on; xlabel('SOC'); ylabel('R [Ohm]');
     ax4 = subplot(2, 4, 4); hold on; plot(SOC, R3, '.-'); title('R3'); grid on; xlabel('SOC'); ylabel('R [Ohm]');
     ax5 = subplot(2, 4, 5); hold on; plot(SOC, tau1, '.-'); title('tau1'); grid on; xlabel('SOC'); ylabel('tau [s]');
     ax6 = subplot(2, 4, 6); hold on; plot(SOC, tau2, '.-'); title('tau2'); grid on; xlabel('SOC'); ylabel('tau [s]');
     ax7 = subplot(2, 4, 7); hold on; plot(SOC, tau3, '.-'); title('tau3'); grid on; xlabel('SOC'); ylabel('tau [s]');
     ax8 = subplot(2, 4, 8); hold on; plot(SOC, OCV, '.-'); title('OCV'); grid on; xlabel('SOC'); ylabel('OCV [V]');
-    linkaxes([ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8], 'x')
+    linkaxes([ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8, ax9], 'x')
 
 end
-
-
-
-
-
-
-
-
 
 
 %****************************************************************************************************
