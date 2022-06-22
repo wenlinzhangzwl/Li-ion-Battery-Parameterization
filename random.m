@@ -149,16 +149,61 @@
 % linkaxes([ax1, ax2], 'x')
 
 %% Plot pulse test
-clear
-currentfolder = cd; 
-addpath(currentfolder); 
+% clear
+% currentfolder = cd; 
+% addpath(currentfolder); 
 
-load('C:\Users\Wenlin\OneDrive\SCHOOL\Projects\48V Battery Pack Design\Test Results\7 - Pulse Test\PROCESSED_PUL25dch.mat')
+% file = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\10degC\MIX_10degC_1p0.mat"; 
+% load(file);
 
-figure; 
-subplot(2, 1, 1)
-plot(meas_t.Time, meas_t.Voltage); 
+% meas = rmfield(meas, {'TimeStamp', 'StepTime', 'Procedure', 'Wh', 'Power'});
+
+Q = abs(max(meas.Ah) - min(meas.Ah));
+C_max = max(abs(meas.Current))/280; 
+
+figure("WindowStyle","docked"); 
+ax(1) = subplot(4, 1, 1); hold on; plot(meas.Time, meas.Voltage, '.-'); %plot(meas.Time(ind), meas.Voltage(ind), '*');
 title("Voltage"); xlabel("Time [s]"); ylabel("Voltage [V]"); grid on
-subplot(2, 1, 2)
-plot(meas_t.Time, meas_t.Current); 
+
+ax(2) = subplot(4, 1, 2); hold on; plot(meas.Time, meas.Current, '.-'); %plot(meas.Time(ind), meas.Current(ind), '*');
 title("Current"); xlabel("Time [s]"); ylabel("Current [A]"); grid on
+
+ax(3) = subplot(4, 1, 3); hold on; plot(meas.Time, meas.Ah, '.-'); %plot(meas.Time(ind), meas.Ah(ind), '*');
+title("Ah"); xlabel("Time [s]"); ylabel("Ah"); grid on
+linkaxes([ax], 'x')
+
+% subplot(4, 1, 4)
+% plot(meas.Time, meas.Battery_Temp_degC); 
+% title("Temperature"); xlabel("Time [s]"); ylabel("Ah"); grid on
+subplot(4, 1, 4)
+plot(meas.Time, meas.Step); 
+title("Step"); xlabel("Time [s]"); ylabel("Ah"); grid on
+
+%%
+load("C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\10 - Characterization\PUL_25degC_0p8_30min.mat")
+figure; 
+ax(1) = subplot(2, 1, 1); hold on; plot(meas.Time, meas.Voltage);
+title("Voltage"); xlabel("Time [s]"); ylabel("Voltage [V]"); grid on
+ax(2) = subplot(2, 1, 2); hold on; plot(meas.Time, meas.Current);
+title("Current"); xlabel("Time [s]"); ylabel("Current [A]"); grid on
+print("mixed_drive_cycle", "-dpng")
+
+%% FFT
+% clear
+% Fs = 1000;
+% T = 1/Fs; 
+% L = 1500; 
+% t = (0:L-1)'*T; % Time vector
+% 
+% S = 0.7*sin(2*pi*50*t) + sin(2*pi*120*t);
+% X = S + 2*randn(size(t)); % Signal to take fft of
+% 
+% Y = fft(X);
+% 
+% P2 = abs(Y/L);
+% P1 = P2(1:L/2+1); % single sided magnitude
+% P1(2:end-1) = 2*P1(2:end-1);
+% 
+% figure; plot(t, P2); grid on
+% figure; plot(t(1:height(P1)), P1); grid on
+

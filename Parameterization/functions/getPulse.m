@@ -74,30 +74,32 @@ iBeg = ind1(i, 2);
 iEnd = ind2(i+1, 2);
 segment1_t = meas_t(iBeg:iEnd, :);
 
-div1 = 100;
-div2 = 200;
-div3 = 250;
-inc1 = 1;
-inc2 = 40;
-inc3 = fix((height(segment1_t) - div1*inc1 - div2*inc2) / div3);
-div = div1 + div2 + div3 + 2; % Total number of points sampled
-p = 1;
-for k = 1:div
-    if k <= div1
-        segment1(k,:) = segment1_t(p,:); %#ok<*AGROW>
-        p = p + inc1;
-    elseif k>div1 && k<=div1+div2 
-        segment1(k,:) = segment1_t(p,:);
-        p = p + inc2;
-    elseif k>div1+div2 && k <= div-2
-        segment1(k,:) = segment1_t(p,:);
-        p = p + inc3; 
-    elseif k == div-1
-        segment1(k,:) = segment1_t(end-1,:);
-    elseif k == div
-        segment1(k,:) = segment1_t(end,:);
-    end
-end
+segment1 = segment1_t; 
+
+% div1 = 100;
+% div2 = 200;
+% div3 = 250;
+% inc1 = 1;
+% inc2 = 40;
+% inc3 = fix((height(segment1_t) - div1*inc1 - div2*inc2) / div3);
+% div = div1 + div2 + div3 + 2; % Total number of points sampled
+% p = 1;
+% for k = 1:div
+%     if k <= div1
+%         segment1(k,:) = segment1_t(p,:); %#ok<*AGROW>
+%         p = p + inc1;
+%     elseif k>div1 && k<=div1+div2 
+%         segment1(k,:) = segment1_t(p,:);
+%         p = p + inc2;
+%     elseif k>div1+div2 && k <= div-2
+%         segment1(k,:) = segment1_t(p,:);
+%         p = p + inc3; 
+%     elseif k == div-1
+%         segment1(k,:) = segment1_t(end-1,:);
+%     elseif k == div
+%         segment1(k,:) = segment1_t(end,:);
+%     end
+% end
     
 end
 
@@ -109,57 +111,59 @@ function [segment2_t, segment2] = getSeg2(meas_t, ind1, ind2, i, num)
     iEnd = ind2(i+1, 2);
     segment2_t = meas_t(iBeg:iEnd, :);
     
-    % Segment layered with previous segment
-    segment2_overlap1 = meas_t(ind1(i,1)-20:1:ind1(i,1)-1, :);
+    segment2 = segment2_t; 
     
-    % Segment layered with next segment
-    if i ~= height(ind2)-1
-        segment2_overlap2 = meas_t(ind2(i+1,2)+1:1:ind2(i+1,2)+20, :);
-    else
-        segment2_overlap2 = [];
-    end
-    
-    % Load segment
-    segment2_load = meas_t(ind1(i,1):ind1(i,2), :);
-
-    % Resample relexation segment
-    segment2_relax_t = meas_t(ind2(i+1,1):ind2(i+1, 2), :);
-    div1 = 100;
-    div2 = 1000;
-    div3 = 5000;
-    inc1 = 1;
-    inc2 = 10;
-    inc3 = fix((height(segment2_relax_t) - div1*inc1 - div2*inc2) / div3);
-    div3 = fix((height(segment2_relax_t) - div1*inc1 - div2*inc2) / inc3);
-    div = div1 + div2 + div3 + 1; % Total number of points sampled
-    p = 1;
-    segment2_relax(1, :) = segment2_relax_t(p,:); 
-    p = p + inc1; 
-    for k = 2:div       
-        if k <= div1
-            segment2_relax(k,:) = segment2_relax_t(p,:);
-            p = p + inc1;
-        elseif k>div1 && k<=div1+div2
-            segment2_relax(k,:) = segment2_relax_t(p,:);
-            p = p + inc2;
-        elseif k>div1+div2 && k<=div-1 
-            segment2_relax(k,:) = segment2_relax_t(p,:);
-            p = p + inc3;
-        elseif k == div
-            segment2_relax(k,:) = segment2_relax_t(end,:);
-        end
-    end
-    
-% %     Plot fit for validation
-%     figure; hold on
-%     plot(segment2_overlap1.Time, segment2_overlap1.Voltage, '.-');
-%     plot(segment2_overlap2.Time, segment2_overlap2.Voltage, '.-');
-%     plot(segment2_load.Time, segment2_load.Voltage, '.-');
-%     plot(segment2_relax.Time, segment2_relax.Voltage, '.-');
-%     hold off
-    
-    segment2 = [segment2_overlap1; segment2_load; segment2_relax; segment2_overlap2];
-    pulse.segment2(i) = {segment2};
+%     % Segment layered with previous segment
+%     segment2_overlap1 = meas_t(ind1(i,1)-20:1:ind1(i,1)-1, :);
+%     
+%     % Segment layered with next segment
+%     if i ~= height(ind2)-1
+%         segment2_overlap2 = meas_t(ind2(i+1,2)+1:1:ind2(i+1,2)+20, :);
+%     else
+%         segment2_overlap2 = [];
+%     end
+%     
+%     % Load segment
+%     segment2_load = meas_t(ind1(i,1):ind1(i,2), :);
+% 
+%     % Resample relexation segment
+%     segment2_relax_t = meas_t(ind2(i+1,1):ind2(i+1, 2), :);
+%     div1 = 100;
+%     div2 = 1000;
+%     div3 = 5000;
+%     inc1 = 1;
+%     inc2 = 10;
+%     inc3 = fix((height(segment2_relax_t) - div1*inc1 - div2*inc2) / div3);
+%     div3 = fix((height(segment2_relax_t) - div1*inc1 - div2*inc2) / inc3);
+%     div = div1 + div2 + div3 + 1; % Total number of points sampled
+%     p = 1;
+%     segment2_relax(1, :) = segment2_relax_t(p,:); 
+%     p = p + inc1; 
+%     for k = 2:div       
+%         if k <= div1
+%             segment2_relax(k,:) = segment2_relax_t(p,:);
+%             p = p + inc1;
+%         elseif k>div1 && k<=div1+div2
+%             segment2_relax(k,:) = segment2_relax_t(p,:);
+%             p = p + inc2;
+%         elseif k>div1+div2 && k<=div-1 
+%             segment2_relax(k,:) = segment2_relax_t(p,:);
+%             p = p + inc3;
+%         elseif k == div
+%             segment2_relax(k,:) = segment2_relax_t(end,:);
+%         end
+%     end
+%     
+% % %     Plot fit for validation
+% %     figure; hold on
+% %     plot(segment2_overlap1.Time, segment2_overlap1.Voltage, '.-');
+% %     plot(segment2_overlap2.Time, segment2_overlap2.Voltage, '.-');
+% %     plot(segment2_load.Time, segment2_load.Voltage, '.-');
+% %     plot(segment2_relax.Time, segment2_relax.Voltage, '.-');
+% %     hold off
+%     
+%     segment2 = [segment2_overlap1; segment2_load; segment2_relax; segment2_overlap2];
+%     pulse.segment2(i) = {segment2};
     
     Time = segment2.Time;
     for i = 1:length(Time)-1

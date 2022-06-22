@@ -1,4 +1,4 @@
-function obj = parameterization_Objective(param_opt, param_prev, param_SOC, BatteryModel, data, initStates, cellCapacity, deltaT, optimMethod)
+function obj = parameterization_Objective(param_opt, param_prev, param_SOC, BatteryModel, data, initStates, cellCapacity, deltaT, optimMethod, OCVcoeff)
     
     parameters.SOC = param_SOC; 
 
@@ -23,16 +23,23 @@ function obj = parameterization_Objective(param_opt, param_prev, param_SOC, Batt
     end
 
     current_dmd = data.Current; 
-    [Vt, ~, ~] = BatteryModel(current_dmd, initStates, parameters, cellCapacity, deltaT); 
+    [Vt, ~, ~] = BatteryModel(current_dmd, initStates, parameters, cellCapacity, deltaT, OCVcoeff); 
 
     error_Vt = data.Voltage - Vt; 
 
-    if optimMethod == "LS"
-        % Return vector obj function
+    if optimMethod == "LS" % Return vector obj function
         obj = error_Vt; 
-    else 
-        % Return scalar obj function
-        obj = sum(error_Vt.^2); 
+    else % Return scalar obj function
+
+%         % Weight dynamic & rest portions proportional to the # of data points
+%         indDyn = find(data.Current ~= 0);
+%         indRest = find(data.Current == 0);
+%         numDyn = height(indDyn);
+%         numRest = height(indRest);
+%         ratio = numRest/numDyn; 
+%         error_Vt(indDyn) = error_Vt(indDyn) * ratio; 
+
+        obj = sum(error_Vt.^2);
     end
     
 end

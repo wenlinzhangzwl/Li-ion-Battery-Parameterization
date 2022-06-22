@@ -4,62 +4,63 @@ clear
 
 % Folders
 folder_current = cd; 
-folder_project = 'C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design';
-folder_functions = append(folder_project, '\Scripts\Parameterization\functions\'); 
-folder_testResults = append(folder_project, '\Test Results');
-folder_result = append(folder_project, '\Test Results\7 - Pulse Test\Results\');  % where results from this script is saved
-addpath(folder_current);
-addpath(folder_functions);
-addpath(genpath(folder_testResults));
-addpath(folder_result);
+folder_functions = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\Scripts\Parameterization\functions";
+folder_data = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\10 - Characterization\";
+% folder_result = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\7 - Pulse Test\";  % where results from this script is saved
+addpath(folder_current, folder_functions, folder_data);
 
 % Load data
-capacityTest = load('CAP25.mat');
-Q = -capacityTest.meas.Ah(end);
-load('PUL_0p1_discharge.mat'); % Pulse discharge test at 0.8C
+% load("C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\8 - Capacity test & US06\Results\Capacity_25degC_Sept23_2021.mat");
+load("C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\10 - Characterization\Results\Capacity_25degC_March22_2022.mat");
+load('PUL_25degC_0p8_30min.mat');
+meas.Current = -meas.Current; % Assume +ve current = discharge
+
+% Plot data to identify steps
+figure; 
+ax(1) = subplot(5, 1, 1); plot(meas.Time, meas.Voltage, '.-'); title("Voltage"); xlabel("Time [s]"); ylabel("Voltage [V]"); grid on
+ax(2) = subplot(5, 1, 2); plot(meas.Time, meas.Current, '.-'); title("Current"); xlabel("Time [s]"); ylabel("Current [A]"); grid on
+ax(3) = subplot(5, 1, 3); plot(meas.Time, meas.Ah, '.-'); title("Ah"); xlabel("Time [s]"); ylabel("Ah"); grid on
+ax(4) = subplot(5, 1, 4); plot(meas.Time, meas.Battery_Temp_degC, '.-'); title("Temperature"); xlabel("Time [s]"); ylabel("Ah"); grid on
+ax(5) = subplot(5, 1, 5); plot(meas.Time, meas.Step, '.-'); title("Step"); xlabel("Time [s]"); ylabel("Ah"); grid on; ylim([10,50]);
+linkaxes(ax, 'x')
 
 %% Divide data into pulses
 
-% 0.8C Pulse Test
-% % Step numbers *******************************************CHANGE
-% iRelax0 =   16;     % Rest before the start of the test
-% iLoad1 =    18;     % 10 charge/discharge pulses from 100% to 90% SOC
-% iRelax1 =   19;     % rest in between
-% iLoad2 =    22;     % 16 charge/discharge pulses from 90% to 10% SOC
-% iRelax2 =   23;     % rest in between
-% iLoad3 =    26;     % 10 charge/discharge pulses from 10% to 0% SOC
-% iRelax3 =   27;     % rest in between
-% iRelax4 =   29;     % rest after test reached Vmin
-% steps = [iRelax0 iLoad1 iRelax1 iLoad2 iRelax2 iLoad3 iRelax3 iRelax4];
-
-% 0.1C Pulse Test
 % Step numbers *******************************************CHANGE
-iRelax0 =   14;     % Rest before the start of the test
-iLoad1 =    16;     % 10 charge/discharge pulses from 100% to 90% SOC
-iRelax1 =   17;     % rest in between
-iLoad2 =    20;     % 16 charge/discharge pulses from 90% to 10% SOC
-iRelax2 =   21;     % rest in between
-iLoad3 =    24;     % 10 charge/discharge pulses from 10% to 0% SOC
-iRelax3 =   25;     % rest in between
-iRelax4 =   27;     % rest after test reached Vmin
+iRelax0 =   99;   % Rest before the start of the test. Needed for MATLAB toolbox to recognize the first pulse. Script will ddd in an artifical data point if set to 99
+iLoad1 =    15;     % 10 charge/discharge pulses from 100% to 90% SOC
+iRelax1 =   16;     % rest in between
+iLoad2 =    19;     % 16 charge/discharge pulses from 90% to 10% SOC
+iRelax2 =   20;     % rest in between
+iLoad3 =    23;     % 10 charge/discharge pulses from 10% to 0% SOC
+iRelax3 =   24;     % rest in between
+iRelax4 =   26;     % rest after test reached Vmin
 steps = [iRelax0 iLoad1 iRelax1 iLoad2 iRelax2 iLoad3 iRelax3 iRelax4];
+
+meas_t = struct2table(meas);
+
+% Add in an artifical data point for MATLAB script to recognize the first pulse
+if steps(1) == 99
+    fake_data = meas_t(1, :);
+    fake_data.Current = 0; 
+    fake_data.Step = 99; 
+
+    meas_t.Time = meas_t.Time + meas_t.Time(2);
+    meas_t = [fake_data; meas_t];
+    
+end
 
 % Correct current sign, negative = charge, positive = charge
 meas.Current = -meas.Current; 
 
-% Delete unnecessary fields
-meas_t = struct2table(meas);
-meas_t.TimeStamp = [];
-meas_t.StepTime = [];
-meas_t.Procedure = [];
-meas_t.Wh = [];
-meas_t.Power = [];
-meas_t.Battery_Temp_degC = [];
 
 % Trim unnecessary data at beginning & end
-iBegin = find(meas.Step == min(steps), 1, 'first'); 
-iEnd = find(meas.Step == max(steps), 1, 'last'); 
-meas_t = meas_t(iBegin:iEnd, :);
+% iBegin = find(meas.Step == min(steps), 1, 'first');
+% if isempty(iBegin)
+%     iBegin = 1; 
+% end
+% iEnd = find(meas.Step == max(steps), 1, 'last'); 
+% meas_t = meas_t(iBegin:iEnd, :);
 meas_t = meas_t(meas_t.Step <= max(steps), :);
 meas_t.Time = meas_t.Time - meas_t.Time(1);
 meas_t.Ah = meas_t.Ah - meas_t.Ah(1);
@@ -154,4 +155,7 @@ pulse = removevars(pulse, 'segment2_t');
 pulse = removevars(pulse, 'param');
 pulse = removevars(pulse, 'Optim');
 
-msgbox('Save the following parameters: meas_t, meas_resampled, pulse, Q')
+meas = meas_t;
+
+% msgbox('Save the following parameters: meas_t, meas_resampled, pulse, Q')
+msgbox('Save the following parameters: meas_t, meas')

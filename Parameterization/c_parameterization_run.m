@@ -1,130 +1,126 @@
+% Notes:
+% Script assumes data current is such that +ve = charge & -ve = discharge. Corrected under "Make sure data is in the correct format"
+
 clear
 
 % Folders
 folder_current = cd; 
-folder_project = 'C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design';
-folder_functions = append(folder_project, '\Scripts\Parameterization\functions\'); 
-folder_data = append(folder_project, '\Test Results'); % where experimental data is saved
-folder_result = append(folder_project, '\Test Results\\9 - Pulse-PRBS Tests\Results\'); % where results from this script is saved
-addpath(folder_current);
-addpath(folder_functions);
-addpath(genpath(folder_data));
-addpath(folder_result);
+folder_functions = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\Scripts\Parameterization\functions"; 
+folder_data1 = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\7 - Pulse Test";
+folder_data2 = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\11 - Drive Cycle (0p8C)\"; % where experimental data is saved
+folder_data3 = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\6 - Drive cycle\";
+folder_data4 = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\10 - Characterization\";
+folder_result = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\Results\"; % where results from this script is saved
+addpath(folder_current, folder_functions, folder_data1, folder_data2, folder_data3, folder_data4, genpath(folder_result));
 
-% Sampling period
+% Test settings
+cell = "EVE280";
 deltaT = 0.1; 
-
-% Load initial guess and ub/lb
-initialGuess = "param_Pulse0p8.mat";
-param = parameterization_setBounds(initialGuess); 
+switch cell
+    case "EVE280"
+        Vmax = 3.65; 
+        Vmin = 2.5;
+end
 
 % Set data to optimize on and polynomial degrees to try 
-dataSet = ["MLBS_0p2Hz"]; % ["UDDS"; "US06"; "HWFET"; "MIXED"; "NEDC"; "Pulse"]; 
-polySet = ["0"]; % ["7";"8";"9";"10";"11";"15";"18";"19";"21";];
+dataSet = ["PUL_25degC_0p8_15min";];
+polySet = ["12"; "13"; "14";"15";"16";"17";"18";"19";"20";"21";]; % ["7";"8";"9";"10";"11";"15";"18";"19";"21";];
 
 % Other optimization settings
 optimMethod = "PSO"; % Can use "LS", "PSO" or "GA"
 constrainOCV = 0;   % Whether OCV is strictly decreasing
 
-
+%%
 for dataNum = 1:height(dataSet)
-    
+
+    % Load initial guess
+    load("param_init.mat", "param"); % SOC from 1 to 0
+    param = parameter_initialization(cell, param.SOC);
+
     for polyNum = 1:height(polySet)
         %% Load test profile & OCV polynomial (if applicable)
         
         clear segments
         
         % Load data set to optimize on
-        dataSample = dataSet(dataNum);
-        switch dataSample
-            case "UDDS"
-                load('UDDS25.mat');
-                dataType = "driveCycle";
-            case "US06"
-                load('US0625.mat');
-                dataType = "driveCycle";
-            case "HWFET"
-                load('HWFET25.mat');
-                dataType = "driveCycle";
-            case "MIXED"
-                load('MIX25.mat');
-                dataType = "driveCycle";
-            case "NEDC"
-                load('NEDC23.mat');
-                dataType = "driveCycle";
-            case "Pulse0p8"
-                load('PROCESSED_PUL25dch.mat');
-                dataType = 'pulse';
-            case "Pulse0p1"
-                load('PROCESSED_PUL_0p1_discharge.mat');
-                dataType = 'pulse';
-            case "MLBS_0p2Hz"
-                load("MLBS_0.2Hz_RT_274Ah.mat")
-                dataType = "pulse_PRBS";
-        end
+        dataSample = dataSet(dataNum); % Name of the data optimized on
+        load(dataSample + ".mat", "meas")
+        dataType = "driveCycle";
 
         % Select data type & delete unnecessary data
-        if dataType == "pulse"
+        if dataType == "pulse" 
+            %% Pulse is pre divided into segments
             segments(:, 3) = [pulse.segment2]; 
-            clear meas_resampled meas_t pulse
             SOC = param.SOC;
         else
-            % Delete unnecessary fields
-            fields = {'TimeStamp','StepTime','Procedure','Wh','Power','Battery_Temp_degC'};
-            meas = rmfield(meas, fields);
-            
-            % Entire profile to be optimized
-            meas_optim = struct2table(meas);
+            %% Divide into segments by SOC
 
-            % Delete last entry
-            meas_optim = meas_optim(1:end-1, :);
+            % Delete unnecessary fields
+            try
+                fields = {'TimeStamp','StepTime','Procedure','Wh','Power','Battery_Temp_degC'};
+                meas = rmfield(meas, fields);
+            catch
+                % Do nothing
+            end
+
+            % Entire profile to be optimized
+            try
+                meas_optim = struct2table(meas);
+            catch
+                meas_optim = meas;
+            end
 
             % Delete inf & NaN
             meas_optim = meas_optim( ~any( isnan( meas_optim.Time ) | isinf( meas_optim.Time ), 2 ),: );
             meas_optim = meas_optim( ~any( isnan( meas_optim.Current ) | isinf( meas_optim.Current ), 2 ),: );
             meas_optim = meas_optim( ~any( isnan( meas_optim.Voltage ) | isinf( meas_optim.Voltage ), 2 ),: );
 
-            % Calculate parameters
-            ind = find(meas_optim.Voltage <=2.5, 1);
+            % Delete anything after Vmin is reached
+            ind = find(meas_optim.Voltage <= Vmin, 1);
             if ~isempty(ind)
                 meas_optim = meas_optim(1:ind, :);
             end
+
+            % Make sure data is in the correct format
             Q = abs(meas_optim.Ah(end)-meas_optim.Ah(1));
-            meas_optim.Current = -meas_optim.Current;
+            meas_optim.Current = -meas_optim.Current; % Assumes input data current has opposite sign convension
             meas_optim.Ah = meas_optim.Ah - meas_optim.Ah(1);
             meas_optim.SOC = 1 - (-meas_optim.Ah)/Q;
             meas_optim.Time = meas_optim.Time - meas_optim.Time(1);
 
             % Divide data into segments by SOC
             SOC = param.SOC;
-            SOC_flip = flip(SOC);
-            for i = 1:height(SOC_flip)-1
-                i1 = find(meas_optim.SOC <= SOC_flip(i), 1);
-                i2 = find(meas_optim.SOC <= SOC_flip(i+1), 1);
+            validateattributes(SOC, "double", "decreasing")
+            for i = 1:height(SOC)-1
+                i1 = find(meas_optim.SOC <= SOC(i), 1);
+                i2 = find(meas_optim.SOC <= SOC(i+1), 1);
                 iStart = min(i1, i2); 
                 iEnd = max(i1, i2); 
                 if isempty(iEnd)
                     iEnd = height(meas_optim);
-                    segments{i, 1} = [SOC_flip(i), SOC_flip(i+1)];
+                    segments{i, 1} = [SOC(i), SOC(i+1)];
                     segments{i, 2} = [iStart, iEnd];
                     segments{i, 3} = meas_optim(iStart:iEnd, :);
                     break
                 end
-                segments{i, 1} = [SOC_flip(i), SOC_flip(i+1)];
+                segments{i, 1} = [SOC(i), SOC(i+1)];
                 segments{i, 2} = [iStart, iEnd];
                 segments{i, 3} = meas_optim(iStart:iEnd, :);
             end
 
             % Plot segments for validation
-%             figure; hold on
-%             for i = 1:height(segments)
-%                 plot(segments{i, 3}.Time, segments{i, 3}.Voltage)
-%             end
+            figure("WindowStyle", "docked"); hold on
+            for i = 1:height(segments)
+                plot(segments{i, 3}.Time, segments{i, 3}.Voltage)
+            end
+
+            % Report error is segments doesn't exist
+            if isempty(segments{1, 3})
+                error("CHECK SEGMENTS")
+            end
+
         end
-        if isempty(segments{1, 3})
-            error("CHECK SEGMENTS")
-        end
-        
+
         % Select OCV polynomial
         polyDeg = polySet(polyNum);
         switch polyDeg
@@ -133,12 +129,10 @@ for dataNum = 1:height(dataSet)
                 coeff = 0;
             otherwise 
                 useOCVpolynomial = 1;
-                load("C20CCCV_OCVSOC" + polyDeg + ".mat") % OCV coefficients (7, 8, 9, 10, 11, 15, 18, 19, 21)
-                clear coeff_chg coeff_dch OCV_SOC
+                load("OCVpoly_" + polyDeg + "_25degC.mat", "coeff") % OCV coefficients (7, 8, 9, 10, 11, 15, 18, 19, 21)
         end
         
-        clear meas meas_optim fields
-        param = flip(param);
+        clear meas meas_optim
 
         %% Optimize each segment
 
@@ -149,7 +143,7 @@ for dataNum = 1:height(dataSet)
             if i > 1
 
                 % Load parameters from prev segment
-                filename = string(folder_result) + optimMethod + "_param_opt_" + dataSample + "_Poly" + polyDeg + "_" + string(i-1) + ".mat";
+                filename = string(folder_result) + "Parameters_Optimized_" + dataSample + "_" + optimMethod + "_Poly" + polyDeg + "_" + string(i-1) + ".mat";
                 load(filename)
                 initStates = endStates; 
 
@@ -159,7 +153,6 @@ for dataNum = 1:height(dataSet)
                 param_opt = [param.OCV_init(i); param.R0_init(i); param.R1_init(i); param.R2_init(i); param.R3_init(i); param.tau1_init(i); param.tau2_init(i); param.tau3_init(i)]; 
                 lb = [param.OCV_lb(i); param.R0_lb(i); param.R1_lb(i); param.R2_lb(i); param.R3_lb(i); param.tau1_lb(i); param.tau2_lb(i); param.tau3_lb(i)]; 
                 ub = [param.OCV_ub(i); param.R0_ub(i); param.R1_ub(i); param.R2_ub(i); param.R3_ub(i); param.tau1_ub(i); param.tau2_ub(i); param.tau3_ub(i)]; 
-
                 
                 if constrainOCV
                     % Whether OCV is constrained to be strictly decreasing
@@ -192,9 +185,9 @@ for dataNum = 1:height(dataSet)
             BatteryModel = @Model_3RC; 
             
             if i > 1
-                fun = @(param_opt)parameterization_Objective(param_opt, param_prev, param_SOC, BatteryModel, seg_optim, initStates, Q, deltaT, optimMethod);
+                fun = @(param_opt)parameterization_Objective(param_opt, param_prev, param_SOC, BatteryModel, seg_optim, initStates, Q, deltaT, optimMethod, coeff);
             elseif i == 1
-                fun = @(param_opt)parameterization_Objective(param_opt, [], param_SOC, BatteryModel, seg_optim, initStates, Q, deltaT, optimMethod);
+                fun = @(param_opt)parameterization_Objective(param_opt, [], param_SOC, BatteryModel, seg_optim, initStates, Q, deltaT, optimMethod, coeff);
             end
 
             x = parameterization_Optimize(fun, param_opt, lb, ub, optimMethod); 
@@ -243,8 +236,8 @@ for dataNum = 1:height(dataSet)
                 parameters_after.T3 = [x(8); x(16)];
             end
 
-            [Vt_before, ~, ~] = Model_3RC(seg_optim.Current, initStates, parameters_before, Q, deltaT); 
-            [Vt_after, ~, endStates] = Model_3RC(seg_optim.Current, initStates, parameters_after, Q, deltaT); 
+            [Vt_before, ~, ~] = Model_3RC(seg_optim.Current, initStates, parameters_before, Q, deltaT, coeff); 
+            [Vt_after, ~, endStates] = Model_3RC(seg_optim.Current, initStates, parameters_after, Q, deltaT, coeff); 
 
             % Plot the measured and simulated data.
             figName = 'Pulse ' + string(i);
@@ -288,7 +281,7 @@ for dataNum = 1:height(dataSet)
             end
 
             % Save optimized parameters
-            filename = string(folder_result) + optimMethod + "_param_opt_" + dataSample + "_Poly" + polyDeg + "_" + string(i) + ".mat";
+            filename = string(folder_result) + "Parameters_Optimized_" + dataSample + "_" + optimMethod + "_Poly" + polyDeg + "_" + string(i) + ".mat";
             save(filename, 'param', 'initStates', 'endStates')
 
         end

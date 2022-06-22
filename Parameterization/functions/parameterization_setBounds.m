@@ -33,24 +33,22 @@ function param = parameterization_setBounds(initialGuess)
         load(initialGuess, 'param')
 
         % Update bounds based on optimization results
-        param.OCV_ub(:) =  param.OCV_init*1.01;
-        param.OCV_lb(:) =  param.OCV_init*0.99;
-%         param.R0_ub =  param.R0_init*1.5;
-%         param.R0_lb =  param.R0_init*0.5;
-%         param.R1_ub =  param.R1_init*1.5;
-%         param.R1_lb =  param.R1_init*0.5;
-%         param.R2_ub =  param.R2_init*1.5;
-%         param.R2_lb =  param.R2_init*0.5;
-%         param.R3_ub =  param.R3_init*1.5;
-%         param.R3_lb =  param.R3_init*0.5;
-%         param.tau1_init(:) = param.tau1_init; % 2;
-%         param.tau1_ub(:) = param.tau1_init*1.5; % 3;
-%         param.tau1_lb(:) = param.tau1_init*0.5; % 1;
-%         param.tau2_init(:) = param.tau2_init; % 50;
-%         param.tau2_ub(:) = param.tau2_init*1.5; % 60;
-%         param.tau2_lb(:) = param.tau2_init*0.5; % 40;
-%         param.tau3_ub = param.tau3_init*1.5;
-%         param.tau3_lb = param.tau3_init*0.5;
+        param.OCV_ub =  param.OCV_init*1.01;
+        param.OCV_lb =  param.OCV_init*0.99;
+        param.R0_ub =  param.R0_init*1.1;
+        param.R0_lb =  param.R0_init*0.9;
+        param.R1_ub =  param.R1_init*1.1;
+        param.R1_lb =  param.R1_init*0.9;
+        param.R2_ub =  param.R2_init*1.1;
+        param.R2_lb =  param.R2_init*0.9;
+        param.R3_ub =  param.R3_init*1.1;
+        param.R3_lb =  param.R3_init*0.9;
+        param.tau1_ub = param.tau1_init*1.1;
+        param.tau1_lb = param.tau1_init*0.9;
+        param.tau2_ub = param.tau2_init*1.1;
+        param.tau2_lb = param.tau2_init*0.9;
+        param.tau3_ub = param.tau3_init*1.1;
+        param.tau3_lb = param.tau3_init*0.9;
         
     end
     

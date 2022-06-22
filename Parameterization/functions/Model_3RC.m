@@ -1,5 +1,5 @@
-function [Vt, SOC, endStates] = Model_3RC(current_dmd, initStates, parameters, cellCapacity, deltaT)
-
+function [Vt, SOC, endStates] = Model_3RC(current_dmd, initStates, parameters, cellCapacity, deltaT, OCVcoeff)
+% 3RC battery model
     % Convert capacity to A*s 
     Q = cellCapacity * 3600; 
 
@@ -11,7 +11,11 @@ function [Vt, SOC, endStates] = Model_3RC(current_dmd, initStates, parameters, c
     SOC_max = max(parameters.SOC);
     SOC_min = min(parameters.SOC); 
     SOC_interp = max(SOC_min, min(SOC, SOC_max));
-    OCV = interp1(parameters.SOC, parameters.OCV, SOC_interp, 'linear'); 
+    if OCVcoeff == 0
+        OCV = interp1(parameters.SOC, parameters.OCV, SOC_interp, 'linear'); 
+    else
+        OCV = polyval(OCVcoeff, SOC_interp);
+    end
     R0 = interp1(parameters.SOC, parameters.R0, SOC_interp, 'linear'); 
     R1 = interp1(parameters.SOC, parameters.R1, SOC_interp, 'linear'); 
     R2 = interp1(parameters.SOC, parameters.R2, SOC_interp, 'linear'); 
@@ -34,6 +38,8 @@ function [Vt, SOC, endStates] = Model_3RC(current_dmd, initStates, parameters, c
     V = zeros(height(current_dmd), 2);  % V = [V_R0, V_RC]
     V(1, :) = [0 0];
 
+    I_RC = zeros(height(current_dmd), 3);
+
     % Calculate voltage at each time step
     for i = 2:height(current_dmd)
 
@@ -44,10 +50,9 @@ function [Vt, SOC, endStates] = Model_3RC(current_dmd, initStates, parameters, c
         V_RC = R(i, :) * I_RC(i, :)';
 
         Vt(i) = OCV(i) - V_R0 - V_RC; 
-        V(i, 1) = V_R0; 
-        V(i, 2) = V_RC; 
+        V(i, :) = [V_R0, V_RC]; 
     end
-
+    
     endStates.I_RC = I_RC(end, :);
     endStates.Vt = Vt(end);
     endStates.SOC = SOC(end);
@@ -56,5 +61,6 @@ function [Vt, SOC, endStates] = Model_3RC(current_dmd, initStates, parameters, c
     if ~isempty(errInd)
         error("Check errInd")
     end
+    
 end
 

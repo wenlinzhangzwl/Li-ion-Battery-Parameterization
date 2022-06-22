@@ -7,19 +7,19 @@ clear
 deltaT = 0.1;
 n_sample = deltaT/1e-3;
 
-load UDDS
+load UDDS_1000Hz.mat
 UDDS_current = drivecycle_current(1:n_sample:end, :);
 UDDS_power = drivecycle_power(1:n_sample:end, :);
 UDDS_CRate = drivecycle_CRate(1:n_sample:end, :);
-load HWFET
+load HWFET_1000Hz.mat
 HWFET_current = drivecycle_current(1:n_sample:end, :);
 HWFET_power = drivecycle_power(1:n_sample:end, :);
 HWFET_CRate = drivecycle_CRate(1:n_sample:end, :);
-load US06
+load US06_1000Hz.mat
 US06_current = drivecycle_current(1:n_sample:end, :);
 US06_power = drivecycle_power(1:n_sample:end, :);
 US06_CRate = drivecycle_CRate(1:n_sample:end, :);
-load NEDC
+load NEDC_1000Hz.mat
 NEDC_current = drivecycle_current(1:n_sample:end, :);
 NEDC_power = drivecycle_power(1:n_sample:end, :);
 NEDC_CRate = drivecycle_CRate(1:n_sample:end, :);
@@ -69,12 +69,12 @@ NEDC_CRate = drivecycle_CRate(1:n_sample:end, :);
 % UDDS_CRate = UDDS_CRate * scaleFactor; 
 
 %% Plot drive cycles
-% CRate
-figure; 
-subplot(4, 1, 1); plot(UDDS_CRate(:, 1), UDDS_CRate(:, 2)); title('UDDS CRate'); grid on
-subplot(4, 1, 2); plot(HWFET_CRate(:, 1), HWFET_CRate(:, 2)); title('HWFET CRate'); grid on
-subplot(4, 1, 3); plot(US06_CRate(:, 1), US06_CRate(:, 2)); title('US06 CRate'); grid on
-subplot(4, 1, 4); plot(NEDC_CRate(:, 1), NEDC_CRate(:, 2)); title('NEDC CRate'); grid on
+% % CRate
+% figure; 
+% subplot(4, 1, 1); plot(UDDS_CRate(:, 1), UDDS_CRate(:, 2)); title('UDDS CRate'); grid on
+% subplot(4, 1, 2); plot(HWFET_CRate(:, 1), HWFET_CRate(:, 2)); title('HWFET CRate'); grid on
+% subplot(4, 1, 3); plot(US06_CRate(:, 1), US06_CRate(:, 2)); title('US06 CRate'); grid on
+% subplot(4, 1, 4); plot(NEDC_CRate(:, 1), NEDC_CRate(:, 2)); title('NEDC CRate'); grid on
 
 % % CRate_neg
 % figure; plot(UDDS_CRate_neg(:, 1), UDDS_CRate_neg(:, 2)); title('UDDS CRate (neg)'); grid on
@@ -250,40 +250,43 @@ drivecycle = 4;
 switch drivecycle
     case 1 % UDDS
         drivecycle_current = UDDS_current;
-        drivecycle_power = UDDS_power; 
         drivecycle_name = 'UDDS';
     case 2 % HWFET
         drivecycle_current = HWFET_current;
-        drivecycle_power = HWFET_power; 
         drivecycle_name = 'HWFET';
     case 3 % US06
         drivecycle_current = US06_current;
-        drivecycle_power = US06_power; 
         drivecycle_name = 'US06';
     case 4 % NEDC 
         drivecycle_current = NEDC_current;
-        drivecycle_power = NEDC_power; 
         drivecycle_name = 'NEDC';
 end
-test_powerProfile = drivecycle_power(:, 2);
+
+% Scale drive cycle
+maxC = "0p8"; 
+maxI = 0.8 * Q; 
+ratio = maxI ./ max(abs(drivecycle_current(:, 2))); 
+drivecycle_current(:, 2) =  ratio.* drivecycle_current(:, 2);
+
+% Plot for validation
+figure("WindowStyle", 'Docked', "Name", "Current"); plot(drivecycle_current(:, 1), drivecycle_current(:, 2));
+figure("WindowStyle", 'Docked', "Name", "C rate"); plot(drivecycle_current(:, 1), drivecycle_current(:, 2)/Q);
 
 % Repeat drive cylce to cover entire SOC range
 SOCRange = 1-0;
-drivecycle_totalPower = sum(drivecycle_power(:, 2))*deltaT;             % total power consumed by the drive cycle [W] 
-drivecycle_length = drivecycle_power(end, 1) - drivecycle_power(1, 1);  % length of the drive cycle [s]
-Vnom = 3.2;                                                             % nominal voltage of the battery [V]
-batt_power = Q * 3600 * Vnom;                                           % total power of the battery [W*s]
-drivecycle_n =  (batt_power*SOCRange)/ (-drivecycle_totalPower);
+drivecycle_Ah = (sum(drivecycle_current(:, 2)) * deltaT)/3600; 
+batt_Ah = Q; 
+drivecycle_n =  (batt_Ah*SOCRange)/ (-drivecycle_Ah);
 drivecycle_n = fix(drivecycle_n) + 1;                                   % number of cycle needed
 
 % Length of a drive cycle & total length of the test
-test_length = (length(test_powerProfile) - 1) * deltaT;     % length of a single segment with rest [s]
+test_length = (length(drivecycle_current) - 1) * deltaT;     % length of a single segment with rest [s]
 test_time = transpose(0:deltaT:test_length); 
 test_totalLength = test_length*drivecycle_n;                % total length of the test [s]
 test_totalLength_hr = test_totalLength/3600;                % total length of the test [h]
 
 % Export to Digatron command
-command = string(deltaT) + ' sec;;' + string(test_powerProfile) +  ';;';
-folder = "C:\Users\Wenlin\OneDrive\SCHOOL\48V Battery Pack Design\Test Results\6 - Drive cycle\Power Profiles\";
-filename = folder + "EVE280_" + string(drivecycle_name) + "_repeat" + string(drivecycle_n) + "_totalLength" + string(test_totalLength_hr)+ ".txt";
-% writematrix(command, filename);
+command = string(deltaT) + ' sec;' + string(drivecycle_current(:, 2)) +  ';;;';
+folder = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\11 - Drive Cycle (0p8C)\Input Power Profiles\";
+filename = folder + "EVE280_" + string(drivecycle_name) + "_" + maxC + "C_repeat" + string(drivecycle_n) + "_totalLength" + string(test_totalLength_hr)+ ".txt";
+writematrix(command, filename);

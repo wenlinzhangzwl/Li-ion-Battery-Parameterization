@@ -5,7 +5,7 @@ currentFolder = cd;
 addpath(currentFolder)
 deltaT = 0.1; % Sampling time for all data
 PRBSfreq = "10";  % 0.2Hz or 10 Hz
-param.Q = 274; % Capacity set to lower so the entire signal can be covered
+param.Q = 270; % Capacity set to lower than nominal so the entire signal can be covered
 
 %% Generate MLBS signal
 
@@ -225,25 +225,44 @@ save(filename, 'signals', 'param', '-mat')
 
 %% Format tests for Digatron
 
-% Pulse1 + MLBS
-sigToCombine = {signals.pulse1(:, 2); signals.mlbs(:, 2)}; 
-signals.pulse1_mlbs = combineSignals(sigToCombine, deltaT); 
-% figure; plot(signals.pulse1_mlbs(:, 1), signals.pulse1_mlbs(:, 2))
-time = 0.1 * ones(height(signals.pulse1_mlbs), 1);
-command = string(time) + ' sec;' + string(-signals.pulse1_mlbs(:, 2)) +  ';;;';
 folder = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\9 - Pulse-PRBS Tests\Input\";
-filename = folder + "EVE280_pulse1_mlbs.txt";
-% writematrix(command, filename);
 
-% % Pulse2 + MLBS
-sigToCombine = {signals.pulse2(:, 2); signals.mlbs(:, 2)}; 
-signals.pulse2_mlbs = combineSignals(sigToCombine, deltaT); 
-% figure; plot(signals.pulse2_mlbs(:, 1), signals.pulse2_mlbs(:, 2))
-time = 0.1 * ones(height(signals.pulse2_mlbs), 1);
-command = string(time) + ' sec;' + string(-signals.pulse2_mlbs(:, 2)) +  ';;;';
-folder = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\9 - Pulse-PRBS Tests\Input\";
-filename = folder + "EVE280_pulse2_mlbs.txt";
-% writematrix(command, filename);
+% Pulse1
+sig = signals.pulse1(:, 2);
+time = 0.1 * ones(height(signals.pulse1), 1);
+command = string(time) + ' sec;' + string(-sig) +  ';;;';
+filename = folder + "EVE280_pulse1_" + PRBSfreq + "Hz_" + string(param.Q) + "Ah.txt";
+writematrix(command, filename);
+
+% Pulse2
+sig = signals.pulse2(:, 2);
+time = 0.1 * ones(height(signals.pulse2), 1);
+command = string(time) + ' sec;' + string(-sig) +  ';;;';
+filename = folder + "EVE280_pulse2_" + PRBSfreq + "Hz_" + string(param.Q) + "Ah.txt";
+writematrix(command, filename);
+
+% MLBS
+sig = signals.mlbs(:, 2);
+time = 0.1 * ones(height(signals.mlbs), 1);
+command = string(time) + ' sec;' + string(-sig) +  ';;;';
+filename = folder + "EVE280_mlbs_" + PRBSfreq + "Hz_" + string(param.Q) + "Ah.txt";
+writematrix(command, filename);
+
+% IRBS
+sig = signals.irbs(:, 2);
+ind = round(height(sig)/2, 1);
+
+sig1 = sig(1:ind); 
+time1 = 0.1 * ones(height(sig1), 1);
+command1 = string(time1) + ' sec;' + string(-sig1) +  ';;;';
+filename = folder + "EVE280_irbs1_" + PRBSfreq + "Hz_" + string(param.Q) + "Ah.txt";
+writematrix(command1, filename);
+
+sig2 = sig(ind+1:end); 
+time2 = 0.1 * ones(height(sig2), 1);
+command2 = string(time2) + ' sec;' + string(-sig2) +  ';;;';
+filename = folder + "EVE280_irbs2_" + PRBSfreq + "Hz_" + string(param.Q) + "Ah.txt";
+writematrix(command2, filename);
 
 %% Functions
 function out = combineSignals(signals, deltaT)

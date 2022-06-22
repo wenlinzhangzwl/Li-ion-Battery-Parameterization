@@ -1,6 +1,3 @@
-% clearvars -except data deltaT dataType CRate
-% data = data(1:8, :); 
-
 clear
 close all
 
@@ -44,52 +41,52 @@ switch dataType
 
     case "entireTest"
         %% Load drive cycle tests
-        folder_data = append(folder_project, '\Test Results\6 - Drive cycle\');
+        folder_data = append(folder_project, '\Test Results\25degC\11 - Drive Cycle (0p8C)\');
         addpath(folder_data)
         
-        load('HWFET25.mat');
+        load('HWFET_25degC_0p8.mat');
         data.HWFET.Time = meas.Time;
         data.HWFET.Current = -meas.Current;
         data.HWFET.Fs = 10;
         
-        load('NEDC23.mat');
+        load('NEDC_25degC_0p8.mat');
         data.NEDC.Time = meas.Time;
         data.NEDC.Current = -meas.Current;
         data.NEDC.Fs = 10;
         
-        load('UDDS25.mat');
+        load('UDDS_25degC_0p8.mat');
         data.UDDS.Time = meas.Time;
         data.UDDS.Current = -meas.Current;
         data.UDDS.Fs = 10;
         
-        load('US0625.mat');
+        load('US06_25degC_0p8.mat');
         data.US06.Time = meas.Time;
         data.US06.Current = -meas.Current;
         data.US06.Fs = 10;
         
-        load('MIX25.mat');
+        load('MIX_25degC_0p8.mat');
         data.Mixed.Time = meas.Time;
         data.Mixed.Current = -meas.Current;
         data.Mixed.Fs = 10;
 
-        %% Load pulse tests
-        load('C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\9 - Pulse-PRBS Tests\ModifiedPulse.mat');
-        data.ModifiedPulse.Time = meas.Time;
-        data.ModifiedPulse.Current = meas.Current;
-        data.ModifiedPulse.Fs = 10;
-        
-        folder_data = append(folder_project, 'Test Results\7 - Pulse Test');
-        addpath(folder_data); 
-
-        load('PROCESSED_PUL_0p1_discharge.mat'); 
-        data.Pulse0p1.Time = meas.Time;
-        data.Pulse0p1.Current = meas.Current;
-        data.Pulse0p1.Fs = 10;
-
-        Pulse0p8 = load('PROCESSED_PUL25dch.mat'); 
-        data.Pulse0p8.Time = meas.Time;
-        data.Pulse0p8.Current = meas.Current;
-        data.Pulse0p8.Fs = 10;
+%         %% Load pulse tests
+%         load('C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\9 - Pulse-PRBS Tests\ModifiedPulse.mat');
+%         data.ModifiedPulse.Time = meas.Time;
+%         data.ModifiedPulse.Current = meas.Current;
+%         data.ModifiedPulse.Fs = 10;
+%         
+%         folder_data = append(folder_project, 'Test Results\7 - Pulse Test');
+%         addpath(folder_data); 
+% 
+%         load('PROCESSED_PUL_0p1_discharge.mat'); 
+%         data.Pulse0p1.Time = meas.Time;
+%         data.Pulse0p1.Current = meas.Current;
+%         data.Pulse0p1.Fs = 10;
+% 
+%         Pulse0p8 = load('PROCESSED_PUL25dch.mat'); 
+%         data.Pulse0p8.Time = meas.Time;
+%         data.Pulse0p8.Current = meas.Current;
+%         data.Pulse0p8.Fs = 10;
         
 end
 
@@ -225,26 +222,29 @@ end
 
 
 %% Power spectrums
-figure; hold on; 
-plot(data{9, 2}.f, data{9, 2}.P1, 'LineWidth',0.1, 'color', '#EDB120'); % Pulse-MLBS
-plot(data{10, 2}.f, data{10, 2}.P1, 'LineWidth',0.1, 'color', '#4DBEEE'); % Pulse-IRBS
-grid on; xlabel('f [Hz]'); ylabel('|Current(f)| [A]'); legend("Pulse-MLBS", 'Pulse-IRBS')
-ylim([0, 15])
-title("Power Spectrums of Test Profiles")
-set(gca, 'XScale', 'log');
+% figure; hold on; 
+% plot(data{9, 2}.f, data{9, 2}.P1, 'LineWidth',0.1, 'color', '#EDB120'); % Pulse-MLBS
+% plot(data{10, 2}.f, data{10, 2}.P1, 'LineWidth',0.1, 'color', '#4DBEEE'); % Pulse-IRBS
+% grid on; xlabel('f [Hz]'); ylabel('|Current(f)| [A]'); legend("Pulse-MLBS", 'Pulse-IRBS')
+% ylim([0, 15])
+% title("Power Spectrums of Test Profiles")
+% set(gca, 'XScale', 'log');
 
 
 figure; hold on; 
-% plot(data{4, 2}.f, data{4, 2}.P1, 'LineWidth',0.1, 'color', '#0072BD');  % US06
-plot(data{5, 2}.f, data{5, 2}.P1, 'LineWidth',0.1, 'color', '#0072BD');  % Mixed
-plot(data{3, 2}.f, data{3, 2}.P1, 'LineWidth',0.1, 'color', '#7E2F8E'); % UDDS
-plot(data{9, 2}.f, data{9, 2}.P1, 'LineWidth',0.1, 'color', '#EDB120'); % Pulse-MLBS
-plot(data{8, 2}.f, data{8, 2}.P1, 'LineWidth',0.1, 'color', '#77AC30'); % Pulse 0.8C
-grid on; xlabel('f [Hz]'); ylabel('|Current(f)| [A]'); legend("Mixed", "UDDS", 'Pulse-MLBS', 'Pulse 0.8C')
+plot(data{4, 2}.f, data{4, 2}.P1, 'LineWidth',0.1);  % US06
+plot(data{1, 2}.f, data{1, 2}.P1, 'LineWidth',0.1);  % HWFET
+plot(data{3, 2}.f, data{3, 2}.P1, 'LineWidth',0.1);  % UDDS
+plot(data{5, 2}.f, data{5, 2}.P1, 'LineWidth',0.1);  % Mixed
+plot(data{2, 2}.f, data{2, 2}.P1, 'LineWidth',0.1); % NEDC
+grid on; xlabel('f [Hz]'); ylabel('|Current(f)| [A]'); legend('US06', 'HWFET', 'UDDS', 'MIXED', 'NEDC')
 ylim([0, 15])
 title("Power Spectrums of Test Profiles")
 set(gca, 'XScale', 'log');
+set(gca, 'YScale', 'log');
 
+
+%%
 function [P1, f] = fft_fcn(x, Fs)
 % Compute power spectrum of input signal x with sample frequency Fs [Hz]
     

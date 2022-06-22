@@ -4,29 +4,53 @@ clear
 
 % Folders
 folder_current = cd; 
-folder_project = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design";
-folder_functions = folder_project + "\Scripts\Parameterization\functions\"; 
-folder_data = folder_project + "\Test Results"; % where experimental data is saved
-folder_result = folder_project + "\Test Results\7 - Pulse Test\Results\"; % where results from this script is saved to
-addpath(folder_current);
-addpath(folder_functions);
-addpath(genpath(folder_data));
-addpath(folder_result);
+folder_functions = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\Scripts\Parameterization\functions"; 
+folder_data = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\10 - Characterization\"; % where experimental data is saved
+folder_result = "C:\Users\Wenlin\OneDrive\SCHOOL\Projects\1 - Prismatic 280Ah Battery Pack Design\Test Results\25degC\Results\"; % where results from this script is saved to
+addpath(folder_current, folder_functions, folder_data, folder_result);
+
+% Test settings
+cell = "EVE280";
+switch cell
+    case "EVE280"
+        Vmax = 3.65; 
+        Vmin = 2.5;
+end
 
 % Load data
-load('PROCESSED_PUL25dch.mat'); 
-validateattributes(meas_t.Time, {'double'}, {'increasing'});
-validateattributes(meas_resampled.Time, {'double'}, {'increasing'});
+file = "PUL_25degC_0p8_1min";
+filename = file +".mat"; 
+load(filename, 'meas'); 
+try
+    meas = struct2table(meas);
+end
+meas.Current = -meas.Current; % Convert to convension: -ve current = charge, +ve current = discharge
+
+% Add in an artifical data point for the function to recognize the first pulse
+if meas.Current(1) ~= 0
+    fake_data = meas(1, :);
+    fake_data.Current = 0; 
+    fake_data.Step = 99; 
+
+    meas.Time = meas.Time + meas.Time(2);
+    meas = [fake_data; meas];
+end
+
+% Delete data where time is not strictly increasing
+time_diff = meas.Time(2:end) - meas.Time(1:end-1);
+ind = find(time_diff <= 0) + 1; 
+meas(ind, :) = []; 
+validateattributes(meas.Time, {'double'}, {'increasing'});
 
 % Create a Battery.PulseSequency object with all measurement data
 psObj = Battery.PulseSequence;
 psObj.ModelName = 'BatteryEstim3RC_PTBS';
-addData(psObj, meas_resampled.Time, meas_resampled.Voltage, meas_resampled.Current); % The MATLAB functions take negative current as discharge
+addData(psObj, meas.Time, meas.Voltage, meas.Current); % The MATLAB functions take +ve current as discharge
 psObj.plot();
 
 % Identify the pulses within the data set
 psObj.createPulses(...
-    'CurrentOnThreshold',0.025,... %minimum current magnitude to identify pulse events
+    'CurrentOnThreshold',0.1,... %minimum current magnitude to identify pulse events
     'NumRCBranches',3,... %how many RC pairs in the model
     'RCBranchesUse2TimeConstants',false,... %do RC pairs have different time constant for discharge and rest?
     'PreBufferSamples',10,... %how many samples to include before the current pulse starts
@@ -34,61 +58,19 @@ psObj.createPulses(...
 psObj.plotIdentifiedPulses();
 
 %%  Estimate Parameters
+
 Params = psObj.Parameters;
 
-R_init = 2e-4; 
-R_lb = 1e-5; 
-R_ub = 1e-3; 
-
-% Set R0 constraints and initial guesses
-Params.R0(:) = R_init;
-Params.R0Min(:) = R_lb;
-Params.R0Max(:) = R_ub;
-
-% Estimate Em
-Params.Em(1, :) = 3.2;
-% Params.Em(1, 1) = 2.5;
-% Params.Em(1, end) = 3.65;
-Params.EmMin(1, :) = 2.4;
-Params.EmMax(1, :) = 3.75;
-
-% Set Tx constraints and initial guesses
-Params.Tx(1,:)      = 1;
-Params.TxMin(1,:)   = 0.1;
-Params.TxMax(1,:)   = 4;
-
-Params.Tx(2,:)      = 50;
-Params.TxMin(2,:)   = 20;
-Params.TxMax(2,:)   = 80;
-
-Params.Tx(3, :)     = 1500; 
-Params.TxMin(3, :)  = 1000;
-Params.TxMax(3, :)  = 2000;
-
-% Params.Tx(1,:)      = 2;
-% Params.TxMin(1,:)   = 0.1;
-% Params.TxMax(1,:)   = 10;
-% 
-% Params.Tx(2,:)      = 50;
-% Params.TxMin(2,:)   = 10;
-% Params.TxMax(2,:)   = 500;
-% 
-% Params.Tx(3, :)     = 1000; 
-% Params.TxMin(3, :)  = 500;
-% Params.TxMax(3, :)  = 2000;
-
-% Set Rx constraints and initial guesses
-Params.Rx(1,:)      = R_init;
-Params.RxMin(1,:)   = R_lb;
-Params.RxMax(1,:)   = R_ub;
-
-Params.Rx(2,:)      = R_init;
-Params.RxMin(2,:)   = R_lb;
-Params.RxMax(2,:)   = R_ub;
-
-Params.Rx(3, :)     = R_init; 
-Params.RxMin(3, :)  = R_lb;
-Params.RxMax(3, :)  = R_ub;
+% Initialize parameters & ub/lb
+param_initialization = parameter_initialization(cell, Params.SOC');
+[Params.Em, Params.EmMin, Params.EmMax] = deal(param_initialization.OCV_init', param_initialization.OCV_lb', param_initialization.OCV_ub');
+[Params.R0, Params.Rx(1, :), Params.Rx(2, :), Params.Rx(3, :)] = deal(param_initialization.R0_init', param_initialization.R1_init', ...
+                                                                      param_initialization.R2_init', param_initialization.R3_init');
+[Params.R0Min, Params.RxMin(1, :), Params.RxMin(2, :), Params.RxMin(3, :)] = deal(param_initialization.R0_lb');
+[Params.R0Max, Params.RxMax(1, :), Params.RxMax(2, :), Params.RxMax(3, :)] = deal(param_initialization.R0_ub');
+[Params.Tx(1, :), Params.Tx(2, :), Params.Tx(3, :)] = deal(param_initialization.tau1_init', param_initialization.tau2_init', param_initialization.tau3_init');
+[Params.TxMin(1, :), Params.TxMin(2, :), Params.TxMin(3, :)] = deal(param_initialization.tau1_lb', param_initialization.tau2_lb', param_initialization.tau3_lb');
+[Params.TxMax(1, :), Params.TxMax(2, :), Params.TxMax(3, :)] = deal(param_initialization.tau1_ub', param_initialization.tau2_ub', param_initialization.tau3_ub');
 
 % Update parameters
 psObj.Parameters = Params;
@@ -96,7 +78,7 @@ psObj.plotLatestParameters();
 
 % Estimate initial R0 values
 psObj.estimateInitialEmR0(...
-    'SetEmConstraints',true,... %Update EmMin or EmMax values based on what we learn here
+    'SetEmConstraints',false,... %Update EmMin or EmMax values based on what we learn here
     'EstimateEm',true,... %Keep this on to perform Em estimates
     'EstimateR0',true); %Keep this on to perform R0 estimates
 
@@ -105,7 +87,7 @@ psObj.plotLatestParameters();
 
 % Get initial Tx (Tau) values
 psObj.estimateInitialTau(...
-    'UpdateEndingEm',false,... %Keep this on to update Em estimates at the end of relaxations, based on the curve fit
+    'UpdateEndingEm',true,... %Keep this on to update Em estimates at the end of relaxations, based on the curve fit
     'ShowPlots',true,... %Set this true if you want to see plots while this runs
     'ReusePlotFigure',true,... %Set this true to overwrite the plots in the same figure
     'UseLoadData',false,... %Set this true if you want to estimate Time constants from the load part of the pulse, instead of relaxation
@@ -133,19 +115,10 @@ psObj.plotLatestParameters(); %See what the parameters look like so far
 psObj.plotSimulationResults(); %See what the result looks like so far
 
 
-
 %% Export initial guess
 psParam = psObj.Parameters;
 
-% % Update OCV at SOC = 0
-% psParam.Em(1) = 2.5;
-% psParam.Em(end) = 3.65;
-% 
-% % Update R0 at SOC = 0 & SOC = 1
-% psParam.R0(1) = 4.72e-4;
-% psParam.R0(end) = 4.72e-4;
-
-% Round OCV to 0.01 to avoid make sure it's non-decreasing
+% Round OCV to 0.01 to make sure it's non-decreasing
 psParam.EmMin = round(psObj.Parameters.EmMin, 2);
 psParam.EmMax = round(psObj.Parameters.EmMax, 2);
 psParam.Em = round(psObj.Parameters.Em, 2);
@@ -155,7 +128,7 @@ param.SOC = psParam.SOC';
 [param.R0_init, param.R1_init,      param.R2_init,      param.R3_init,      param.tau1_init,    param.tau2_init,    param.tau3_init,    param.OCV_init] = deal(...
  psParam.R0',   psParam.Rx(1, :)',  psParam.Rx(2, :)',  psParam.Rx(3, :)',  psParam.Tx(1, :)',  psParam.Tx(2, :)',  psParam.Tx(3, :)',  psParam.Em');
 
-[param.R0_lb,       param.R1_lb,            param.R2_lb,            param.R3_lb, param.tau1_lb, param.tau2_lb, param.tau3_lb, param.OCV_lb] = deal(...
+[param.R0_lb,           param.R1_lb,            param.R2_lb,            param.R3_lb, param.tau1_lb, param.tau2_lb, param.tau3_lb, param.OCV_lb] = deal(...
  psParam.R0Min',        psParam.RxMin(1, :)',   psParam.RxMin(2, :)',   psParam.RxMin(3, :)', ...
  psParam.TxMin(1, :)',  psParam.TxMin(2, :)',   psParam.TxMin(3, :)',   psParam.EmMin');
 
@@ -221,3 +194,8 @@ errorInd2 = find(OCVdiff<=0, 1);
 if ~isempty(errorInd2)
     error('Check ub & lb of OCV (see errorInd2)');
 end
+
+
+% Save parameters
+filename = folder_result + "Parameters_Layered_" + file + ".mat"; 
+save(filename, "param", "-mat")
