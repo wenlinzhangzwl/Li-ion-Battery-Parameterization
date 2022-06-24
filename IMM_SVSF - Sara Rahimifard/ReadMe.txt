@@ -1,0 +1,1 @@
+Stored at "Z:\projects\2054 - 48 V battery Module EECOMOBILITY\BMS\Estimation Algorithm"
